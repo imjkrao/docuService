@@ -31,6 +31,9 @@ A plain static site with no runtime server, ready for Azure Static Web Apps:
 - **Per-page table of contents**, previous/next links, and anchored headings.
 - **"Edit this page in Azure Repos"**, deep-linked to the file on the right
   branch. Coordinates are read from `remote.origin.url`; nothing to configure.
+- **Links to folders resolve to Azure Repos.** `[project](powerbi/Sales.Report)`
+  opens that folder in Azure DevOps rather than dragging the whole tree into the
+  site or emitting a dead link.
 - **"Last updated"** dates taken from the commit that last touched each file.
 - **Build-time syntax highlighting** (no CDN, no client-side highlighter) and
   Mermaid diagrams from ` ```mermaid ` fences.
@@ -56,7 +59,16 @@ checkout instead — [full instructions](docs/local-testing.md).
 npx docuservice init
 ```
 
-Writes `docuservice.json` and `azure-pipelines.yml` into your repository. Then:
+Writes `docuservice.json` and `azure-pipelines.yml` into your repository.
+
+If you already have an `azure-pipelines.yml` — most repositories do — it is left
+untouched and the docs pipeline goes to `azure-pipelines-docs.yml` instead. Azure
+DevOps runs that as its own pipeline definition, independent of your application
+build. `init` also prints a job you can paste into an existing pipeline if you
+would rather keep one definition. `--force` refreshes files docuservice
+generated; it will not overwrite a pipeline it did not write.
+
+Then:
 
 1. Create a Static Web App in the Azure portal (**Deployment source: Other**).
 2. Copy its deployment token.
@@ -73,7 +85,7 @@ multi-stage variant with a manual approval before production.
 | --- | --- |
 | `docuservice build [dir]` | Build the site. `--out`, `--base`, `--quiet` |
 | `docuservice serve [dir]` | Preview with rebuild-on-change. `--port` |
-| `docuservice init [dir]` | Scaffold `docuservice.json` + `azure-pipelines.yml`. `--force` |
+| `docuservice init [dir]` | Scaffold `docuservice.json` + a pipeline. `--force`, `--pipeline <file>` |
 
 ## Configuration
 

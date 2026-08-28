@@ -9,11 +9,22 @@ trigger:
   branches:
     include:
       - main
+  paths:
+    include:
+      - '**/*.md'
+      - docuservice.json
+      # Must name the file this pipeline lives in — update it if you rename this file.
+      - azure-pipelines.multistage.yml
 
 pr:
   branches:
     include:
       - main
+  paths:
+    include:
+      - '**/*.md'
+      - docuservice.json
+      - azure-pipelines.multistage.yml
 
 variables:
   DOCS_OUTPUT_DIR: site

@@ -4,6 +4,7 @@ import anchor from 'markdown-it-anchor';
 import hljs from 'highlight.js';
 import type { Heading, Page, RenderedPage, SiteConfig } from './types.js';
 import { slugify } from './discover.js';
+import { repoPathUrl } from './git.js';
 
 export interface MarkdownContext {
   config: SiteConfig;
@@ -11,6 +12,12 @@ export interface MarkdownContext {
   pageByRelPath: Map<string, Page>;
   /** Collected local asset references: relPath from srcDir → true. */
   assets: Set<string>;
+  /** Directories in the source tree, POSIX-relative to srcDir. */
+  directories: Set<string>;
+  /** Folders that were linked out to Azure Repos. */
+  repoLinks: Set<string>;
+  /** Folders that could not be linked because no repository is configured. */
+  unlinkedDirectories: Set<string>;
 }
 
 const EXTERNAL = /^([a-z][a-z0-9+.-]*:|\/\/)/i;
@@ -80,11 +87,12 @@ function installLinkRewriter(md: MarkdownIt, context: MarkdownContext): void {
 
     if (token && href && page) {
       if (EXTERNAL.test(href)) {
-        token.attrSet('rel', 'noopener noreferrer');
-        token.attrSet('target', '_blank');
-        token.attrJoin('class', 'external-link');
+        markExternal(token);
       } else if (!href.startsWith('#')) {
-        token.attrSet('href', rewriteInternalHref(href, page, context));
+        const rewritten = rewriteInternalHref(href, page, context);
+        token.attrSet('href', rewritten);
+        // A folder link resolves to Azure Repos, so it leaves the site.
+        if (EXTERNAL.test(rewritten)) markExternal(token);
       }
     }
 
@@ -112,9 +120,29 @@ export function rewriteInternalHref(href: string, page: Page, context: MarkdownC
 
   if (match) return `${match.url}${query}${hash}`;
 
+  // A link to a folder has no page to point at. Send it to the folder in Azure
+  // Repos rather than copying the tree into the site or emitting a dead link.
+  if (context.directories.has(resolved)) {
+    const repo = context.config.repo;
+    if (repo) {
+      context.repoLinks.add(resolved);
+      return repoPathUrl(repo, resolved);
+    }
+    // No repository configured: leave the author's link untouched rather than
+    // rewriting it to a path that is guaranteed to 404.
+    context.unlinkedDirectories.add(resolved);
+    return href;
+  }
+
   // Not a known page: treat as a static asset to copy verbatim.
   context.assets.add(resolved);
-  return `${context.config.base}${resolved}${query}${hash}`;
+  return `${context.config.base}${encodePath(resolved)}${query}${hash}`;
+}
+
+function markExternal(token: { attrSet(n: string, v: string): void; attrJoin(n: string, v: string): void }): void {
+  token.attrSet('rel', 'noopener noreferrer');
+  token.attrSet('target', '_blank');
+  token.attrJoin('class', 'external-link');
 }
 
 function installImageRewriter(md: MarkdownIt, context: MarkdownContext): void {
@@ -130,7 +158,7 @@ function installImageRewriter(md: MarkdownIt, context: MarkdownContext): void {
     if (token && src && page && !EXTERNAL.test(src) && !src.startsWith('data:')) {
       const resolved = resolveFromPage(src, page);
       context.assets.add(resolved);
-      token.attrSet('src', `${context.config.base}${resolved}`);
+      token.attrSet('src', `${context.config.base}${encodePath(resolved)}`);
       token.attrSet('loading', 'lazy');
       token.attrSet('decoding', 'async');
     }
@@ -189,11 +217,35 @@ function inlineText(children: { type: string; content: string }[]): string {
     .trim();
 }
 
-/** Resolve a relative link against the page's own directory, POSIX-style. */
+/**
+ * Resolve a relative link against the page's own directory, POSIX-style.
+ *
+ * The result is percent-decoded: markdown-it normalises hrefs, so a file or
+ * folder whose name contains a space arrives here as "My%20Folder" while the
+ * filesystem and the page map hold "My Folder". Decoding is what makes those
+ * paths match at all.
+ */
 function resolveFromPage(target: string, page: Page): string {
-  if (target.startsWith('/')) return target.replace(/^\/+/, '');
+  const decoded = decodePath(target);
+  if (decoded.startsWith('/')) return decoded.replace(/^\/+/, '');
   const dir = path.posix.dirname(page.relPath);
-  return path.posix.normalize(dir === '.' ? target : `${dir}/${target}`).replace(/^\/+/, '');
+  return path.posix.normalize(dir === '.' ? decoded : `${dir}/${decoded}`).replace(/^\/+/, '');
+}
+
+function decodePath(value: string): string {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value; // malformed escape sequence: use it as written
+  }
+}
+
+/** Re-encode a decoded repo path for use in a site URL, segment by segment. */
+function encodePath(value: string): string {
+  return value
+    .split('/')
+    .map((segment) => encodeURIComponent(segment))
+    .join('/');
 }
 
 /** Crude Markdown → text used only for the search index. */
