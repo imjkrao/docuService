@@ -10,8 +10,13 @@ const INDEX_NAMES = new Set(['index', 'readme']);
  * Walk `srcDir` and turn every Markdown file into a Page.
  * Ordering is stable: index pages first, then front-matter `order`, then title.
  */
-export async function discoverPages(srcDir: string, config: SiteConfig): Promise<Page[]> {
-  const files = await walk(srcDir, srcDir, config.exclude);
+export async function discoverPages(
+  srcDir: string,
+  config: SiteConfig,
+  /** Exact POSIX paths relative to srcDir that must never be walked (e.g. outDir). */
+  excludeExact: string[] = [],
+): Promise<Page[]> {
+  const files = await walk(srcDir, srcDir, config.exclude, new Set(excludeExact));
   const pages: Page[] = [];
 
   for (const file of files) {
@@ -23,17 +28,22 @@ export async function discoverPages(srcDir: string, config: SiteConfig): Promise
   return pages;
 }
 
-async function walk(root: string, dir: string, exclude: string[]): Promise<string[]> {
+async function walk(
+  root: string,
+  dir: string,
+  exclude: string[],
+  excludeExact: Set<string>,
+): Promise<string[]> {
   const entries = await readdir(dir, { withFileTypes: true });
   const found: string[] = [];
 
   for (const entry of entries) {
     const full = path.join(dir, entry.name);
     const rel = toPosix(path.relative(root, full));
-    if (isExcluded(rel, entry.name, exclude)) continue;
+    if (excludeExact.has(rel) || isExcluded(rel, entry.name, exclude)) continue;
 
     if (entry.isDirectory()) {
-      found.push(...(await walk(root, full, exclude)));
+      found.push(...(await walk(root, full, exclude, excludeExact)));
     } else if (entry.isFile() && MARKDOWN_EXT.has(path.extname(entry.name).toLowerCase())) {
       found.push(full);
     }

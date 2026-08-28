@@ -2,7 +2,7 @@ import { createServer } from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
 import { watch } from 'node:fs';
 import path from 'node:path';
-import { build, type BuildOptions } from './build.js';
+import { build, nestedOutDir, type BuildOptions } from './build.js';
 
 const MIME: Record<string, string> = {
   '.html': 'text/html; charset=utf-8',
@@ -32,24 +32,35 @@ export async function serve(options: ServeOptions): Promise<void> {
   console.log(`Built ${result.pageCount} pages → ${result.outDir}`);
 
   const srcDir = path.resolve(options.root, result.config.srcDir);
-  let rebuilding: Promise<void> | null = null;
+  // The output usually lives inside the source (`serve .` writes to ./site).
+  // Watching it would make every write trigger the rebuild that produced it.
+  const outRel = nestedOutDir(srcDir, result.outDir);
+  let rebuilding: Promise<void> = Promise.resolve();
   let timer: NodeJS.Timeout | null = null;
 
+  const ignored = (filename: string): boolean => {
+    const rel = filename.split(path.sep).join('/');
+    if (/(^|\/)(node_modules|\.git)(\/|$)/.test(rel)) return true;
+    return outRel !== null && (rel === outRel || rel.startsWith(`${outRel}/`));
+  };
+
   watch(srcDir, { recursive: true }, (_event, filename) => {
-    if (filename && /(^|[/\\])(node_modules|\.git)([/\\]|$)/.test(String(filename))) return;
+    if (!filename || ignored(String(filename))) return;
     if (timer) clearTimeout(timer);
     timer = setTimeout(() => {
-      rebuilding = build({ ...options, quiet: true })
+      // Chain onto the in-flight build so two rebuilds never write concurrently.
+      rebuilding = rebuilding
+        .then(() => build({ ...options, quiet: true, clean: false }))
         .then((next) => {
           result = next;
           console.log(`Rebuilt ${next.pageCount} pages (${next.durationMs}ms)`);
         })
         .catch((error: unknown) => console.error(`Build failed: ${(error as Error).message}`));
-    }, 120);
+    }, 150);
   });
 
   const server = createServer(async (req, res) => {
-    if (rebuilding) await rebuilding.catch(() => undefined);
+    await rebuilding.catch(() => undefined);
 
     const base = result.config.base;
     let pathname = decodeURIComponent(new URL(req.url ?? '/', 'http://localhost').pathname);
