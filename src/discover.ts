@@ -16,7 +16,27 @@ export async function discoverPages(
   /** Exact POSIX paths relative to srcDir that must never be walked (e.g. outDir). */
   excludeExact: string[] = [],
 ): Promise<Page[]> {
-  const files = await walk(srcDir, srcDir, config.exclude, new Set(excludeExact));
+  return (await scanSource(srcDir, config, excludeExact)).pages;
+}
+
+export interface SourceScan {
+  pages: Page[];
+  /** Every directory walked, as a POSIX path relative to srcDir. */
+  directories: Set<string>;
+}
+
+/**
+ * Single walk of the source tree yielding both the pages and the directories.
+ * Rendering needs the directory set to tell a link to a folder from a link to
+ * a missing file, and the walk is too expensive to repeat.
+ */
+export async function scanSource(
+  srcDir: string,
+  config: SiteConfig,
+  excludeExact: string[] = [],
+): Promise<SourceScan> {
+  const directories = new Set<string>();
+  const files = await walk(srcDir, srcDir, config.exclude, new Set(excludeExact), directories);
   const pages: Page[] = [];
 
   for (const file of files) {
@@ -25,7 +45,7 @@ export async function discoverPages(
   }
 
   pages.sort(comparePages);
-  return pages;
+  return { pages, directories };
 }
 
 async function walk(
@@ -33,6 +53,7 @@ async function walk(
   dir: string,
   exclude: string[],
   excludeExact: Set<string>,
+  directories: Set<string>,
 ): Promise<string[]> {
   const entries = await readdir(dir, { withFileTypes: true });
   const found: string[] = [];
@@ -43,7 +64,8 @@ async function walk(
     if (excludeExact.has(rel) || isExcluded(rel, entry.name, exclude)) continue;
 
     if (entry.isDirectory()) {
-      found.push(...(await walk(root, full, exclude, excludeExact)));
+      directories.add(rel);
+      found.push(...(await walk(root, full, exclude, excludeExact, directories)));
     } else if (entry.isFile() && MARKDOWN_EXT.has(path.extname(entry.name).toLowerCase())) {
       found.push(full);
     }

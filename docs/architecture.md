@@ -37,8 +37,9 @@ the navigation; `README.md`/`index.md` is the section landing page; the first
 *in* the repo — links point at `.md` files. A generator that leaves those alone
 produces a site full of broken links. Every relative link is resolved against
 the page's own directory and mapped onto the built URL, preserving anchors and
-query strings. Anything that does not resolve to a page is treated as an asset
-and copied.
+query strings. Anything that resolves to a directory becomes a link
+into Azure Repos — copying a linked folder would pull entire sibling projects
+into the site — and anything else that exists on disk is copied as an asset.
 
 **Build-time syntax highlighting.** Highlighting runs during the build with
 highlight.js rather than shipping a highlighter to the browser. Enterprise

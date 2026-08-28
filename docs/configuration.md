@@ -47,7 +47,23 @@ built outside the repository they belong to.
 | `branch` | string | Branch used for edit links. Defaults to the current branch, or `BUILD_SOURCEBRANCHNAME` in a pipeline |
 | `pathPrefix` | string | Path inside the repo that `srcDir` corresponds to |
 
-Set `repo` to `null` to suppress edit links entirely.
+Set `repo` to `null` to suppress edit links entirely. Note that `repo` also
+drives folder links: without it, a Markdown link that points at a directory is
+left exactly as the author wrote it, since there is nowhere correct to send it.
+
+## How link targets are resolved
+
+For each relative link, in order:
+
+| Target resolves to | Result |
+| --- | --- |
+| A page in the site | The built page URL, anchors and query preserved |
+| A directory in the repository | The folder in Azure Repos, opened in a new tab |
+| Any other file | Copied into the site and served from it |
+| Nothing on disk | Left as written |
+
+Percent-encoded targets are decoded before resolution, so `My%20Folder` matches
+`My Folder` on disk.
 
 ## Front matter
 

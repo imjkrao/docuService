@@ -3,7 +3,7 @@ import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadConfig } from './config.js';
-import { discoverPages, toPosix } from './discover.js';
+import { scanSource, toPosix } from './discover.js';
 import { attachLastUpdated, detectRepo } from './git.js';
 import { createRenderer, type MarkdownContext } from './markdown.js';
 import { buildNav, flattenNav } from './nav.js';
@@ -37,7 +37,12 @@ export interface BuildResult {
   outDir: string;
   pageCount: number;
   assetCount: number;
-  /** Referenced paths that resolved to directories and were deliberately not copied. */
+  /** Folders linked from Markdown that now point at Azure Repos. */
+  repoLinkedDirectories: string[];
+  /**
+   * Folders linked from Markdown that could not be pointed anywhere, because no
+   * Azure Repos remote was detected or configured. Their links are left as-is.
+   */
   skippedDirectories: string[];
   durationMs: number;
 }
@@ -57,7 +62,7 @@ export async function build(options: BuildOptions): Promise<BuildResult> {
   // `docuservice serve .` puts the output inside the source by default. That is
   // fine, but the build must never discover — or later delete — its own output.
   const nestedOut = nestedOutDir(srcDir, outDir);
-  const pages = await discoverPages(srcDir, config, nestedOut ? [nestedOut] : []);
+  const { pages, directories } = await scanSource(srcDir, config, nestedOut ? [nestedOut] : []);
   if (pages.length === 0) throw new Error(`No Markdown files found under ${srcDir}`);
 
   await attachLastUpdated(pages, srcDir);
@@ -73,6 +78,9 @@ export async function build(options: BuildOptions): Promise<BuildResult> {
     config,
     pageByRelPath: new Map(pages.map((page) => [page.relPath, page])),
     assets: new Set(),
+    directories,
+    repoLinks: new Set(),
+    unlinkedDirectories: new Set(),
   };
 
   const render = createRenderer(context);
@@ -121,9 +129,17 @@ export async function build(options: BuildOptions): Promise<BuildResult> {
   if (home.synthesized && !options.quiet) {
     console.log('  (generated a home page — add index.md or README.md to control it)');
   }
-  if (assets.skippedDirectories.length > 0 && !options.quiet) {
+  const repoLinkedDirectories = [...context.repoLinks].sort();
+  const unlinkedDirectories = [...context.unlinkedDirectories].sort();
+
+  if (!options.quiet && repoLinkedDirectories.length > 0) {
     console.log(
-      `  (skipped ${assets.skippedDirectories.length} link(s) to directories, e.g. ${assets.skippedDirectories[0]} — only files are copied)`,
+      `  (${repoLinkedDirectories.length} folder link(s) point at Azure Repos, e.g. ${repoLinkedDirectories[0]})`,
+    );
+  }
+  if (!options.quiet && unlinkedDirectories.length > 0) {
+    console.log(
+      `  (${unlinkedDirectories.length} folder link(s) left unchanged, e.g. ${unlinkedDirectories[0]} — set "repo" in docuservice.json to link them to Azure Repos)`,
     );
   }
 
@@ -132,7 +148,8 @@ export async function build(options: BuildOptions): Promise<BuildResult> {
     outDir,
     pageCount: rendered.length,
     assetCount: assets.copied,
-    skippedDirectories: assets.skippedDirectories,
+    repoLinkedDirectories,
+    skippedDirectories: unlinkedDirectories,
     durationMs: Date.now() - started,
   };
 }
@@ -215,9 +232,8 @@ async function copyAssets(
   assets: Set<string>,
   srcDir: string,
   outDir: string,
-): Promise<{ copied: number; skippedDirectories: string[] }> {
+): Promise<{ copied: number }> {
   let copied = 0;
-  const skippedDirectories: string[] = [];
 
   for (const asset of assets) {
     const from = path.resolve(srcDir, asset);
@@ -231,10 +247,8 @@ async function copyAssets(
       continue; // referenced but missing on disk
     }
 
-    if (info.isDirectory()) {
-      skippedDirectories.push(asset);
-      continue;
-    }
+    // Directories never reach here — rendering routes folder links to Azure
+    // Repos — but a symlink or device node could, and neither belongs in a site.
     if (!info.isFile()) continue;
 
     const to = path.join(outDir, asset);
@@ -243,7 +257,7 @@ async function copyAssets(
     copied += 1;
   }
 
-  return { copied, skippedDirectories };
+  return { copied };
 }
 
 /**

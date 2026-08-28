@@ -70,17 +70,27 @@ export function parseAzureRemote(remote: string): Omit<RepoConfig, 'branch' | 'p
   return null;
 }
 
-/** Deep link to the file in the Azure Repos web editor. */
-export function editUrl(repo: RepoConfig, relPath: string): string {
+/**
+ * Deep link to a path inside the Azure Repos web UI.
+ * The same URL shape serves files and folders — Azure Repos shows the file
+ * contents with an Edit button, or the folder listing.
+ */
+export function repoPathUrl(repo: RepoConfig, relPath: string): string {
   const prefix = repo.pathPrefix ? `${repo.pathPrefix.replace(/^\/|\/$/g, '')}/` : '';
-  const filePath = `/${prefix}${relPath}`;
-  const params = new URLSearchParams({
-    path: filePath,
-    version: `GB${repo.branch}`,
-    _a: 'contents',
-  });
+  // encodeURIComponent, not URLSearchParams: the latter encodes a space as "+",
+  // which only means space under form encoding. Paths need %20.
+  const query = [
+    `path=${encodeURIComponent(`/${prefix}${relPath}`)}`,
+    `version=${encodeURIComponent(`GB${repo.branch}`)}`,
+    '_a=contents',
+  ].join('&');
   const org = encodeURIComponent(repo.organization);
   const project = encodeURIComponent(repo.project);
   const repository = encodeURIComponent(repo.repository);
-  return `https://dev.azure.com/${org}/${project}/_git/${repository}?${params.toString()}`;
+  return `https://dev.azure.com/${org}/${project}/_git/${repository}?${query}`;
+}
+
+/** Deep link to the file in the Azure Repos web editor. */
+export function editUrl(repo: RepoConfig, relPath: string): string {
+  return repoPathUrl(repo, relPath);
 }

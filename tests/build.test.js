@@ -108,8 +108,82 @@ test('build does not recursively copy directories linked from Markdown (issue #2
 
   assert.equal(result.assetCount, 1, 'only the file asset is copied');
   assert.deepEqual(result.skippedDirectories, ['powerbi/Report.Report']);
+  assert.deepEqual(result.repoLinkedDirectories, [], 'no repo configured, so nothing to link to');
   assert.equal(existsSync(path.join(root, 'out', 'powerbi')), false, 'the project tree is not copied');
   assert.equal(existsSync(path.join(root, 'out', 'logo.png')), true);
+
+  const home = await readFile(path.join(root, 'out', 'index.html'), 'utf8');
+  assert.match(home, /href="powerbi\/Report\.Report"/, "the author's link is left untouched");
+});
+
+test('folder links resolve to Azure Repos when a repository is configured', async () => {
+  const root = await mkdtemp(path.join(tmpdir(), 'docuservice-'));
+  await mkdir(path.join(root, 'docs', 'powerbi', 'Sales.Report'), { recursive: true });
+  await writeFile(path.join(root, 'docs', 'powerbi', 'Sales.Report', 'model.json'), '{}');
+  await writeFile(
+    path.join(root, 'docs', 'README.md'),
+    '# Analytics\n\nOpen the [sales report](powerbi/Sales.Report) project.\n',
+  );
+  await writeFile(
+    path.join(root, 'docs', 'docuservice.json'),
+    JSON.stringify({
+      title: 'Analytics',
+      outDir: '../out',
+      repo: {
+        organization: 'contoso',
+        project: 'Data',
+        repository: 'analytics',
+        branch: 'main',
+        pathPrefix: 'docs',
+      },
+    }),
+  );
+
+  const result = await build({ root: path.join(root, 'docs'), quiet: true });
+
+  assert.deepEqual(result.repoLinkedDirectories, ['powerbi/Sales.Report']);
+  assert.deepEqual(result.skippedDirectories, []);
+  assert.equal(result.assetCount, 0, 'the project tree is not copied into the site');
+
+  const home = await readFile(path.join(root, 'out', 'index.html'), 'utf8');
+  assert.match(home, /https:\/\/dev\.azure\.com\/contoso\/Data\/_git\/analytics/);
+  assert.match(home, /path=%2Fdocs%2Fpowerbi%2FSales\.Report/, 'pathPrefix is applied');
+  assert.match(home, /version=GBmain/);
+  assert.match(home, /target="_blank"/, 'a link that leaves the site opens in a new tab');
+  assert.match(home, /rel="noopener noreferrer"/);
+});
+
+test('a folder link with spaces is encoded correctly', async () => {
+  const root = await mkdtemp(path.join(tmpdir(), 'docuservice-'));
+  await mkdir(path.join(root, 'powerbiprojects', 'EHSQ ESG Professional Services'), { recursive: true });
+  await writeFile(
+    path.join(root, 'powerbiprojects', 'EHSQ ESG Professional Services', 'x.json'),
+    '{}',
+  );
+  await writeFile(
+    path.join(root, 'README.md'),
+    '# Analytics\n\n[EHSQ](powerbiprojects/EHSQ%20ESG%20Professional%20Services)\n',
+  );
+  await writeFile(
+    path.join(root, 'docuservice.json'),
+    JSON.stringify({
+      outDir: '.site',
+      repo: {
+        organization: 'contoso',
+        project: 'Data Analytics',
+        repository: 'analytics',
+        branch: 'main',
+        pathPrefix: '',
+      },
+    }),
+  );
+
+  const result = await build({ root, quiet: true });
+
+  assert.deepEqual(result.repoLinkedDirectories, ['powerbiprojects/EHSQ ESG Professional Services']);
+  const home = await readFile(path.join(root, '.site', 'index.html'), 'utf8');
+  assert.match(home, /EHSQ%20ESG%20Professional%20Services/, 'spaces encode as %20, not +');
+  assert.match(home, /_git\/analytics/);
 });
 
 test('build tolerates being re-run without cleaning', async () => {
@@ -122,4 +196,25 @@ test('build tolerates being re-run without cleaning', async () => {
 
   assert.equal(second.pageCount, 1);
   assert.equal(existsSync(path.join(out, 'index.html')), true);
+});
+
+test('links and images to names containing spaces resolve', async () => {
+  const root = await mkdtemp(path.join(tmpdir(), 'docuservice-'));
+  await mkdir(path.join(root, 'Data Sources'), { recursive: true });
+  await writeFile(path.join(root, 'Data Sources', 'NetSuite Milestone.md'), '# NetSuite Milestone\n\nBody.\n');
+  await writeFile(path.join(root, 'my diagram.png'), 'png');
+  await writeFile(
+    path.join(root, 'README.md'),
+    '# Home\n\n[NetSuite](Data%20Sources/NetSuite%20Milestone.md)\n\n![d](my%20diagram.png)\n',
+  );
+
+  const result = await build({ root, outDir: path.join(root, '.site'), quiet: true });
+
+  assert.equal(result.pageCount, 2);
+  assert.equal(result.assetCount, 1, 'the image is found on disk despite the space');
+
+  const home = await readFile(path.join(root, '.site', 'index.html'), 'utf8');
+  assert.match(home, /href="\/data-sources\/netsuite-milestone\/"/, 'the page link resolves');
+  assert.match(home, /src="\/my%20diagram\.png"/, 'the image src is re-encoded for the URL');
+  assert.equal(existsSync(path.join(root, '.site', 'my diagram.png')), true);
 });

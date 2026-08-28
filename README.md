@@ -31,6 +31,9 @@ A plain static site with no runtime server, ready for Azure Static Web Apps:
 - **Per-page table of contents**, previous/next links, and anchored headings.
 - **"Edit this page in Azure Repos"**, deep-linked to the file on the right
   branch. Coordinates are read from `remote.origin.url`; nothing to configure.
+- **Links to folders resolve to Azure Repos.** `[project](powerbi/Sales.Report)`
+  opens that folder in Azure DevOps rather than dragging the whole tree into the
+  site or emitting a dead link.
 - **"Last updated"** dates taken from the commit that last touched each file.
 - **Build-time syntax highlighting** (no CDN, no client-side highlighter) and
   Mermaid diagrams from ` ```mermaid ` fences.
