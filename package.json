@@ -1,0 +1,48 @@
+{
+  "name": "docuservice",
+  "version": "0.1.0",
+  "description": "Turn a folder of Markdown files in Azure Repos into a published Azure Static Web App. Zero config.",
+  "type": "module",
+  "bin": {
+    "docuservice": "./dist/cli.js"
+  },
+  "main": "./dist/index.js",
+  "exports": {
+    ".": "./dist/index.js"
+  },
+  "files": [
+    "dist",
+    "azure",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json && node scripts/copy-theme.js",
+    "dev": "npm run build && node dist/cli.js serve examples/docs",
+    "demo": "npm run build && node dist/cli.js build examples/docs",
+    "test": "npm run build && node --test \"tests/**/*.test.js\"",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "markdown",
+    "documentation",
+    "azure",
+    "static-web-apps",
+    "azure-devops",
+    "azure-repos",
+    "docs-as-code"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "gray-matter": "^4.0.3",
+    "highlight.js": "^11.11.1",
+    "markdown-it": "^14.1.0",
+    "markdown-it-anchor": "^9.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "^5.7.2"
+  }
+}
