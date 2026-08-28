@@ -1,0 +1,9 @@
+{
+  "title": "Contoso Platform Docs",
+  "description": "A sample documentation set that ships with docuservice.",
+  "outDir": "../../.tmp/site",
+  "theme": {
+    "accent": "#0078d4",
+    "footer": "© Contoso — built with docuservice"
+  }
+}

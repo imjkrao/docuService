@@ -1,0 +1,49 @@
+# Publishes the Markdown in this repository as an Azure Static Web App.
+#
+# Setup (once):
+#   1. Create a Static Web App in the Azure portal (Deployment source: "Other").
+#   2. Copy its deployment token.
+#   3. In this pipeline, add a secret variable named AZURE_STATIC_WEB_APPS_API_TOKEN.
+
+trigger:
+  branches:
+    include:
+      - main
+  paths:
+    include:
+      - '**/*.md'
+      - docuservice.json
+      - azure-pipelines.yml
+
+pr:
+  branches:
+    include:
+      - main
+
+pool:
+  vmImage: ubuntu-latest
+
+variables:
+  DOCS_OUTPUT_DIR: site
+
+steps:
+  - checkout: self
+    # Full history so "Last updated" dates come from real commits.
+    fetchDepth: 0
+
+  - task: NodeTool@0
+    displayName: Use Node.js 20
+    inputs:
+      versionSpec: '20.x'
+
+  - script: npx --yes docuservice build . --out "$(DOCS_OUTPUT_DIR)"
+    displayName: Build documentation site
+
+  - task: AzureStaticWebApp@0
+    displayName: Deploy to Azure Static Web Apps
+    inputs:
+      app_location: '$(DOCS_OUTPUT_DIR)'
+      output_location: ''
+      skip_app_build: true
+      skip_api_build: true
+      azure_static_web_apps_api_token: $(AZURE_STATIC_WEB_APPS_API_TOKEN)

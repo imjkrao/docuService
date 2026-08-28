@@ -1,0 +1,87 @@
+# Publishes the Markdown in this repository to a staging Static Web App, then
+# to production after a manual approval on the "docs-production" environment.
+#
+# Secret variables required (add both as secrets in the pipeline or a variable group):
+#   SWA_TOKEN_STAGING
+#   SWA_TOKEN_PRODUCTION
+
+trigger:
+  branches:
+    include:
+      - main
+
+pr:
+  branches:
+    include:
+      - main
+
+variables:
+  DOCS_OUTPUT_DIR: site
+
+stages:
+  - stage: Build
+    jobs:
+      - job: BuildDocs
+        pool:
+          vmImage: ubuntu-latest
+        steps:
+          - checkout: self
+            # Full history so "Last updated" dates come from real commits.
+            fetchDepth: 0
+
+          - task: NodeTool@0
+            displayName: Use Node.js 20
+            inputs:
+              versionSpec: '20.x'
+
+          - script: npx --yes docuservice build . --out "$(DOCS_OUTPUT_DIR)"
+            displayName: Build documentation site
+
+          - publish: $(DOCS_OUTPUT_DIR)
+            artifact: site
+
+  - stage: Staging
+    dependsOn: Build
+    jobs:
+      - deployment: DeployStaging
+        pool:
+          vmImage: ubuntu-latest
+        environment: docs-staging
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - download: current
+                  artifact: site
+                - task: AzureStaticWebApp@0
+                  displayName: Deploy to staging
+                  inputs:
+                    app_location: '$(Pipeline.Workspace)/site'
+                    output_location: ''
+                    skip_app_build: true
+                    skip_api_build: true
+                    azure_static_web_apps_api_token: $(SWA_TOKEN_STAGING)
+
+  - stage: Production
+    dependsOn: Staging
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+    jobs:
+      - deployment: DeployProduction
+        pool:
+          vmImage: ubuntu-latest
+        # Add an approval check on this environment in Azure DevOps.
+        environment: docs-production
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - download: current
+                  artifact: site
+                - task: AzureStaticWebApp@0
+                  displayName: Deploy to production
+                  inputs:
+                    app_location: '$(Pipeline.Workspace)/site'
+                    output_location: ''
+                    skip_app_build: true
+                    skip_api_build: true
+                    azure_static_web_apps_api_token: $(SWA_TOKEN_PRODUCTION)
