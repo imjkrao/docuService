@@ -13,6 +13,9 @@ trigger:
     include:
       - '**/*.md'
       - docuservice.json
+      # Must name the file this pipeline lives in. If you rename it (e.g. to
+      # azure-pipelines-docs.yml alongside an application pipeline), update this
+      # line too, or the docs build will not run when you edit the pipeline.
       - azure-pipelines.yml
 
 pr:

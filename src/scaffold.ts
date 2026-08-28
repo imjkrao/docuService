@@ -59,7 +59,7 @@ export async function init(options: InitOptions): Promise<InitResult> {
 
   const pipeline = await resolvePipelineTarget(root, options);
   if (pipeline.write) {
-    await writeFile(path.join(root, pipeline.name), pipelineTemplate(), 'utf8');
+    await writeFile(path.join(root, pipeline.name), pipelineTemplate(pipeline.name), 'utf8');
     written.push(pipeline.name);
   } else if (pipeline.reason) {
     skipped.push({ file: pipeline.name, reason: pipeline.reason });
@@ -187,7 +187,7 @@ function configTemplate(title: string): string {
  * Azure Pipelines definition: build the site, then deploy it to Azure Static
  * Web Apps. The deployment token is read from a pipeline secret variable.
  */
-function pipelineTemplate(): string {
+function pipelineTemplate(selfName: string): string {
   return `${GENERATED_MARKER}
 # Publishes the Markdown in this repository as an Azure Static Web App.
 #
@@ -204,7 +204,7 @@ trigger:
     include:
       - '**/*.md'
       - docuservice.json
-      - azure-pipelines.yml
+      - ${selfName}
 
 pr:
   branches:

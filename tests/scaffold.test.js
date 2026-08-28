@@ -81,3 +81,19 @@ test('generated pipelines carry the marker that makes them recognisable', async 
   const yaml = await readFile(path.join(root, 'azure-pipelines.yml'), 'utf8');
   assert.match(yaml, /^# docuservice:generated/);
 });
+
+test('the generated pipeline triggers on its own filename, not the default', async () => {
+  const root = await repo();
+  await writeFile(path.join(root, 'azure-pipelines.yml'), FOREIGN);
+
+  const result = await init({ root, force: false });
+  const yaml = await readFile(path.join(root, result.pipelineFile), 'utf8');
+
+  const triggerPaths = yaml.slice(yaml.indexOf('trigger:'), yaml.indexOf('pr:'));
+  assert.match(triggerPaths, /- azure-pipelines-docs\.yml/, 'watches the file it lives in');
+  assert.doesNotMatch(
+    triggerPaths,
+    /- azure-pipelines\.yml$/m,
+    'does not rebuild docs when the application pipeline changes',
+  );
+});
