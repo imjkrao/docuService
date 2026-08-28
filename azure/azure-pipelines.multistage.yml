@@ -17,6 +17,9 @@ pr:
 
 variables:
   DOCS_OUTPUT_DIR: site
+  # Where the CLI is installed from. A registry name, a tarball committed to the
+  # repo (e.g. tools/docuservice-0.1.0.tgz), or a git URL all work.
+  DOCUSERVICE_PACKAGE: docuservice
 
 stages:
   - stage: Build
@@ -34,7 +37,9 @@ stages:
             inputs:
               versionSpec: '20.x'
 
-          - script: npx --yes docuservice build . --out "$(DOCS_OUTPUT_DIR)"
+          - script: |
+              npm install --no-save "$(DOCUSERVICE_PACKAGE)"
+              npx docuservice build . --out "$(DOCS_OUTPUT_DIR)"
             displayName: Build documentation site
 
           - publish: $(DOCS_OUTPUT_DIR)

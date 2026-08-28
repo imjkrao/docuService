@@ -14,6 +14,10 @@ folder of Markdown and it produces a complete site. Configuration is optional.
 npx docuservice build ./docs --out ./site
 ```
 
+> **Not published to npm yet.** To try it now, clone this repository and run it
+> from source — see [running it before the package is published](docs/local-testing.md).
+> The short version: `npm install && npm run build && node dist/cli.js serve /path/to/your/repo`.
+
 ## What it produces
 
 A plain static site with no runtime server, ready for Azure Static Web Apps:
@@ -43,6 +47,8 @@ npx docuservice serve ./docs
 ```
 
 Builds the site, serves it at `http://localhost:4321`, and rebuilds on change.
+Until the package is published, run `node dist/cli.js serve ./docs` from a
+checkout instead — [full instructions](docs/local-testing.md).
 
 ### 2. Wire it into Azure
 
@@ -132,7 +138,8 @@ npm run demo      # build the sample docs in examples/
 npm run dev       # serve the sample docs
 ```
 
-Further reading: [architecture](docs/architecture.md) ·
+Further reading: [local testing](docs/local-testing.md) ·
+[architecture](docs/architecture.md) · [configuration](docs/configuration.md) ·
 [product notes](docs/product.md).
 
 ## License

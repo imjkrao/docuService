@@ -1,4 +1,4 @@
-import { cp, mkdir, rm, writeFile } from 'node:fs/promises';
+import { cp, mkdir, rm, stat, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -23,6 +23,13 @@ export interface BuildOptions {
   base?: string;
   /** Suppress per-page logging. */
   quiet?: boolean;
+  /**
+   * Remove the output directory before writing. Default true.
+   * `serve` disables it for rebuilds: deleting a tree that a preview request or
+   * a Windows file lock is holding open throws EPERM, and the delete is not
+   * worth the failure mode mid-edit.
+   */
+  clean?: boolean;
 }
 
 export interface BuildResult {
@@ -30,6 +37,8 @@ export interface BuildResult {
   outDir: string;
   pageCount: number;
   assetCount: number;
+  /** Referenced paths that resolved to directories and were deliberately not copied. */
+  skippedDirectories: string[];
   durationMs: number;
 }
 
@@ -45,7 +54,10 @@ export async function build(options: BuildOptions): Promise<BuildResult> {
   if (!existsSync(srcDir)) throw new Error(`Source directory not found: ${srcDir}`);
   if (outDir === srcDir) throw new Error('outDir must not be the same directory as the Markdown source.');
 
-  const pages = await discoverPages(srcDir, config);
+  // `docuservice serve .` puts the output inside the source by default. That is
+  // fine, but the build must never discover — or later delete — its own output.
+  const nestedOut = nestedOutDir(srcDir, outDir);
+  const pages = await discoverPages(srcDir, config, nestedOut ? [nestedOut] : []);
   if (pages.length === 0) throw new Error(`No Markdown files found under ${srcDir}`);
 
   await attachLastUpdated(pages, srcDir);
@@ -68,7 +80,11 @@ export async function build(options: BuildOptions): Promise<BuildResult> {
   const nav = buildNav(pages);
   const flat = flattenNav(nav);
 
-  await rm(outDir, { recursive: true, force: true });
+  if (options.clean !== false) {
+    // maxRetries covers Windows EPERM/EBUSY from antivirus, indexers and sync
+    // clients briefly holding handles on files we are removing.
+    await rm(outDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+  }
   await mkdir(outDir, { recursive: true });
 
   for (const page of rendered) {
@@ -88,7 +104,7 @@ export async function build(options: BuildOptions): Promise<BuildResult> {
 
   await writeFile(path.join(outDir, '404.html'), renderNotFound(rendered, nav, config), 'utf8');
   await copyTheme(outDir);
-  const assetCount = await copyAssets(context.assets, srcDir, outDir);
+  const assets = await copyAssets(context.assets, srcDir, outDir);
 
   if (config.search) {
     await writeFile(
@@ -105,12 +121,18 @@ export async function build(options: BuildOptions): Promise<BuildResult> {
   if (home.synthesized && !options.quiet) {
     console.log('  (generated a home page — add index.md or README.md to control it)');
   }
+  if (assets.skippedDirectories.length > 0 && !options.quiet) {
+    console.log(
+      `  (skipped ${assets.skippedDirectories.length} link(s) to directories, e.g. ${assets.skippedDirectories[0]} — only files are copied)`,
+    );
+  }
 
   return {
     config,
     outDir,
     pageCount: rendered.length,
-    assetCount,
+    assetCount: assets.copied,
+    skippedDirectories: assets.skippedDirectories,
     durationMs: Date.now() - started,
   };
 }
@@ -181,20 +203,55 @@ async function copyTheme(outDir: string): Promise<void> {
   await cp(THEME_DIR, target, { recursive: true });
 }
 
-/** Copy every non-Markdown file the content referenced (images, PDFs, downloads). */
-async function copyAssets(assets: Set<string>, srcDir: string, outDir: string): Promise<number> {
+/**
+ * Copy every non-Markdown *file* the content referenced (images, PDFs, downloads).
+ *
+ * Directories are deliberately not copied. A link to a folder is usually meant to
+ * point at the folder in the repository, and copying it recursively can pull an
+ * entire sibling project into the site — which then has to be deleted on the next
+ * build, and fails outright when anything in it is locked.
+ */
+async function copyAssets(
+  assets: Set<string>,
+  srcDir: string,
+  outDir: string,
+): Promise<{ copied: number; skippedDirectories: string[] }> {
   let copied = 0;
+  const skippedDirectories: string[] = [];
 
   for (const asset of assets) {
     const from = path.resolve(srcDir, asset);
     // Never escape the source tree, even if the Markdown linked to "../secrets".
     if (from !== srcDir && !from.startsWith(srcDir + path.sep)) continue;
-    if (!existsSync(from)) continue;
+
+    let info;
+    try {
+      info = await stat(from);
+    } catch {
+      continue; // referenced but missing on disk
+    }
+
+    if (info.isDirectory()) {
+      skippedDirectories.push(asset);
+      continue;
+    }
+    if (!info.isFile()) continue;
+
     const to = path.join(outDir, asset);
     await mkdir(path.dirname(to), { recursive: true });
-    await cp(from, to, { recursive: true });
+    await cp(from, to);
     copied += 1;
   }
 
-  return copied;
+  return { copied, skippedDirectories };
+}
+
+/**
+ * POSIX path of outDir relative to srcDir when it sits inside it, else null.
+ * Used to keep the build from discovering or watching its own output.
+ */
+export function nestedOutDir(srcDir: string, outDir: string): string | null {
+  const rel = path.relative(srcDir, outDir);
+  if (!rel || rel.startsWith('..') || path.isAbsolute(rel)) return null;
+  return toPosix(rel);
 }

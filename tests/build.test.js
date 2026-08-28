@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { mkdtemp, mkdir, readFile, writeFile } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { build } from '../dist/build.js';
@@ -77,4 +78,48 @@ test('build refuses to write into the source directory', async () => {
 test('build fails clearly when there is no Markdown', async () => {
   const root = await mkdtemp(path.join(tmpdir(), 'docuservice-'));
   await assert.rejects(() => build({ root, quiet: true }), /No Markdown files found/);
+});
+
+test('build ignores its own output when outDir is inside srcDir (issue #2)', async () => {
+  const root = await mkdtemp(path.join(tmpdir(), 'docuservice-'));
+  await writeFile(path.join(root, 'README.md'), '# Notes\n\nBody.\n');
+
+  // `docuservice serve .` — output lands in ./site, inside the source tree.
+  const first = await build({ root, outDir: path.join(root, 'site'), quiet: true });
+  assert.equal(first.pageCount, 1);
+
+  // A second build must not discover the HTML it just wrote, and must not grow.
+  const second = await build({ root, outDir: path.join(root, 'site'), quiet: true });
+  assert.equal(second.pageCount, 1, 'output directory is excluded from discovery');
+});
+
+test('build does not recursively copy directories linked from Markdown (issue #2)', async () => {
+  const root = await mkdtemp(path.join(tmpdir(), 'docuservice-'));
+  await mkdir(path.join(root, 'docs'), { recursive: true });
+  await mkdir(path.join(root, 'docs', 'powerbi', 'Report.Report', '.pbi'), { recursive: true });
+  await writeFile(path.join(root, 'docs', 'powerbi', 'Report.Report', '.pbi', 'locked.json'), '{}');
+  await writeFile(
+    path.join(root, 'docs', 'README.md'),
+    '# Analytics\n\nSee the [report project](powerbi/Report.Report) and the [logo](logo.png).\n',
+  );
+  await writeFile(path.join(root, 'docs', 'logo.png'), 'png-bytes');
+
+  const result = await build({ root: path.join(root, 'docs'), outDir: path.join(root, 'out'), quiet: true });
+
+  assert.equal(result.assetCount, 1, 'only the file asset is copied');
+  assert.deepEqual(result.skippedDirectories, ['powerbi/Report.Report']);
+  assert.equal(existsSync(path.join(root, 'out', 'powerbi')), false, 'the project tree is not copied');
+  assert.equal(existsSync(path.join(root, 'out', 'logo.png')), true);
+});
+
+test('build tolerates being re-run without cleaning', async () => {
+  const root = await mkdtemp(path.join(tmpdir(), 'docuservice-'));
+  await writeFile(path.join(root, 'README.md'), '# One\n\nBody.\n');
+
+  const out = path.join(root, 'site');
+  await build({ root, outDir: out, quiet: true });
+  const second = await build({ root, outDir: out, quiet: true, clean: false });
+
+  assert.equal(second.pageCount, 1);
+  assert.equal(existsSync(path.join(out, 'index.html')), true);
 });
