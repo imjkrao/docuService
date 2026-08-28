@@ -1,8 +1,8 @@
-# Running it before the package is published
+# Running from source
 
-`docuservice` is not on npm yet, so `npx docuservice` will not resolve. Three
-ways to run it from source, in order of how much you want it to feel like the
-real thing.
+`docuservice` is on npm, so `npx docuservice` works. Run it from source when you
+are changing the tool itself, or testing a fix before it ships. Three ways, in
+order of how much you want it to feel like the released package.
 
 ## Prerequisites
 
@@ -71,7 +71,7 @@ docuservice --help
 
 Uninstall with `npm uninstall -g docuservice`.
 
-The tarball is also the answer for your pipeline before publication — see below.
+A tarball is also how you run an unreleased fix through a real pipeline — see below.
 
 ## Trying it on a real repository
 
@@ -94,7 +94,7 @@ Things worth checking on your own content:
   silently.
 - Is anything in the site that should not be? Add it to `exclude`.
 
-## Using it in Azure Pipelines before publication
+## Installing the CLI in Azure Pipelines
 
 The generated `azure-pipelines.yml` installs the CLI from a variable:
 
@@ -103,11 +103,12 @@ variables:
   DOCUSERVICE_PACKAGE: docuservice
 ```
 
-Until the package is published, set that variable to something your build agent
-can reach. In rough order of preference:
+The default pulls the published package from npm and needs no changes. Point the
+variable elsewhere when the agent cannot reach npmjs.org, or when you want to
+pin an unreleased build:
 
-**Azure Artifacts feed** — the right answer for an Azure DevOps shop, and worth
-setting up even after publication for a private build.
+**Azure Artifacts feed** — the right answer when the agent has no public npm
+access, or when you want an internal mirror with an upstream source.
 
 ```bash
 npm publish --registry https://pkgs.dev.azure.com/<org>/_packaging/<feed>/npm/registry/
@@ -116,8 +117,8 @@ npm publish --registry https://pkgs.dev.azure.com/<org>/_packaging/<feed>/npm/re
 Add an `.npmrc` pointing at the feed plus an `npmAuthenticate@0` task before the
 build step, and leave `DOCUSERVICE_PACKAGE` as `docuservice`.
 
-**A tarball committed to the repo** — ugly, but it works today with no extra
-infrastructure:
+**A tarball committed to the repo** — ugly, but it needs no infrastructure and
+is a reasonable way to test an unreleased fix on a real pipeline:
 
 ```yaml
 variables:
