@@ -11,7 +11,6 @@ Node.js 20 or later, and git.
 ```bash
 git clone https://github.com/imjkrao/docuService.git
 cd docuService
-git checkout claude/markdown-static-web-azure-wzbm5z
 npm install
 npm run build
 ```
@@ -64,8 +63,8 @@ mistakes — a missing file in `files`, a broken `bin` path — that Options 1 a
 hide.
 
 ```bash
-npm pack                          # writes docuservice-0.1.0.tgz
-npm install -g ./docuservice-0.1.0.tgz
+npm pack                          # writes docuservice-<version>.tgz
+npm install -g ./docuservice-0.2.0.tgz
 docuservice --help
 ```
 
@@ -107,6 +106,10 @@ The default pulls the published package from npm and needs no changes. Point the
 variable elsewhere when the agent cannot reach npmjs.org, or when you want to
 pin an unreleased build:
 
+> Agents with no npm access at all are better served by the
+> [Azure DevOps extension](extension.md), which bundles the CLI and installs
+> nothing at run time.
+
 **Azure Artifacts feed** — the right answer when the agent has no public npm
 access, or when you want an internal mirror with an upstream source.
 
@@ -122,14 +125,14 @@ is a reasonable way to test an unreleased fix on a real pipeline:
 
 ```yaml
 variables:
-  DOCUSERVICE_PACKAGE: tools/docuservice-0.1.0.tgz
+  DOCUSERVICE_PACKAGE: tools/docuservice-0.2.0.tgz
 ```
 
 **A git URL** — if the agent can authenticate to the repository:
 
 ```yaml
 variables:
-  DOCUSERVICE_PACKAGE: git+https://github.com/imjkrao/docuService.git#claude/markdown-static-web-azure-wzbm5z
+  DOCUSERVICE_PACKAGE: git+https://github.com/imjkrao/docuService.git#main
 ```
 
 Note this installs from source, so the agent needs `devDependencies` and a build

@@ -25,7 +25,11 @@
     "dev": "npm run build && node dist/cli.js serve examples/docs",
     "demo": "npm run build && node dist/cli.js build examples/docs",
     "test": "npm run build && node --test \"tests/**/*.test.js\"",
-    "prepublishOnly": "npm run build && npm test"
+    "prepublishOnly": "npm run build && npm test",
+    "ext:build": "npm --prefix extension/DocuServiceBuild install && npm --prefix extension/DocuServiceBuild run build",
+    "ext:stage": "node extension/scripts/stage.mjs",
+    "ext:package": "npm run ext:build && npm run ext:stage && tfx extension create --root extension --manifest-globs vss-extension.json --output-path extension/dist",
+    "ext:icon": "node extension/scripts/make-icon.mjs"
   },
   "keywords": [
     "markdown",
@@ -45,6 +49,7 @@
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
+    "tfx-cli": "^0.24.0",
     "typescript": "^5.7.2"
   },
   "repository": {
