@@ -49,6 +49,28 @@ Builds the site, serves it at `http://localhost:4321`, and rebuilds on change.
 
 ### 2. Wire it into Azure
 
+**From the Marketplace** — add the task to a pipeline, no YAML to write by hand:
+
+```yaml
+- task: DocuServiceBuild@1
+  inputs:
+    sourceDirectory: '$(Build.SourcesDirectory)'
+    outputDirectory: 'site'
+
+- task: AzureStaticWebApp@0
+  inputs:
+    app_location: '$(DocuServiceBuild.outputDirectory)'
+    output_location: ''
+    skip_app_build: true
+    skip_api_build: true
+    azure_static_web_apps_api_token: $(AZURE_STATIC_WEB_APPS_API_TOKEN)
+```
+
+The extension bundles the CLI, so it installs nothing at run time and works on agents
+with no npm access. See [the extension notes](docs/extension.md).
+
+**Or scaffold the YAML** and run the CLI from npm:
+
 ```bash
 npx docuservice init
 ```
@@ -145,8 +167,9 @@ npm run dev       # serve the sample docs
 ```
 
 Further reading: [running from source](docs/local-testing.md) ·
-[architecture](docs/architecture.md) · [configuration](docs/configuration.md) ·
-[changelog](CHANGELOG.md) · [product notes](docs/product.md).
+[Azure DevOps extension](docs/extension.md) · [architecture](docs/architecture.md) ·
+[configuration](docs/configuration.md) · [changelog](CHANGELOG.md) ·
+[product notes](docs/product.md).
 
 ## License
 

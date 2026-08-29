@@ -25,6 +25,20 @@ this; `--pipeline <file>` writes to a filename you choose.
 Note the `paths` filter in the templates: the docs pipeline only runs when
 Markdown actually changes, so it does not fire on every application commit.
 
+## Prefer not to manage YAML at all?
+
+The same build ships as an Azure DevOps Marketplace task, which bundles the CLI and
+installs nothing at run time — the right choice for agents behind a firewall:
+
+```yaml
+- task: DocuServiceBuild@1
+  inputs:
+    sourceDirectory: '$(Build.SourcesDirectory)'
+    outputDirectory: 'site'
+```
+
+See [the extension notes](../docs/extension.md).
+
 ## One-time setup
 
 1. Create a Static Web App in the Azure portal with **Deployment source: Other**.

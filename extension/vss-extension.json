@@ -1,0 +1,75 @@
+{
+  "manifestVersion": 1,
+  "id": "docuservice",
+  "name": "DocuService — Markdown to Static Web App",
+  "version": "1.0.0",
+  "publisher": "imjkrao",
+  "public": false,
+  "targets": [
+    {
+      "id": "Microsoft.VisualStudio.Services"
+    }
+  ],
+  "description": "Publish the Markdown already in your repository as an Azure Static Web App. No restructuring, no navigation file to maintain.",
+  "categories": ["Azure Pipelines"],
+  "tags": [
+    "markdown",
+    "documentation",
+    "static site",
+    "azure static web apps",
+    "docs as code"
+  ],
+  "icons": {
+    "default": "images/extension-icon.png"
+  },
+  "content": {
+    "details": {
+      "path": "overview.md"
+    },
+    "license": {
+      "path": "LICENSE"
+    }
+  },
+  "links": {
+    "home": {
+      "uri": "https://github.com/imjkrao/docuService"
+    },
+    "repository": {
+      "uri": "https://github.com/imjkrao/docuService"
+    },
+    "issues": {
+      "uri": "https://github.com/imjkrao/docuService/issues"
+    },
+    "license": {
+      "uri": "https://github.com/imjkrao/docuService/blob/main/LICENSE"
+    }
+  },
+  "repository": {
+    "type": "git",
+    "uri": "https://github.com/imjkrao/docuService"
+  },
+  "galleryFlags": ["Free"],
+  "files": [
+    {
+      "path": "DocuServiceBuild"
+    },
+    {
+      "path": "images",
+      "addressable": true
+    },
+    {
+      "path": "LICENSE",
+      "addressable": true
+    }
+  ],
+  "contributions": [
+    {
+      "id": "docuservice-build-task",
+      "type": "ms.vss-distributed-task.task",
+      "targets": ["ms.vss-distributed-task.tasks"],
+      "properties": {
+        "name": "DocuServiceBuild"
+      }
+    }
+  ]
+}

@@ -1,0 +1,74 @@
+{
+  "$schema": "https://raw.githubusercontent.com/Microsoft/azure-pipelines-task-lib/master/tasks.schema.json",
+  "id": "3881d703-de70-410a-bb02-31341b638f69",
+  "name": "DocuServiceBuild",
+  "friendlyName": "Build documentation site",
+  "description": "Render the Markdown in this repository into a static site ready to deploy to Azure Static Web Apps. No configuration required.",
+  "helpMarkDown": "[Documentation](https://github.com/imjkrao/docuService#readme) | [Report an issue](https://github.com/imjkrao/docuService/issues)\n\nPair this task with **Azure Static Web Apps deploy** and point its `app_location` at `$(DocuServiceBuild.outputDirectory)`.",
+  "category": "Utility",
+  "author": "docuservice",
+  "version": {
+    "Major": 1,
+    "Minor": 0,
+    "Patch": 0
+  },
+  "instanceNameFormat": "Build documentation site",
+  "inputs": [
+    {
+      "name": "sourceDirectory",
+      "type": "filePath",
+      "label": "Source directory",
+      "defaultValue": "$(Build.SourcesDirectory)",
+      "required": true,
+      "helpMarkDown": "Folder containing the Markdown files, and optionally `docuservice.json`. Defaults to the repository root."
+    },
+    {
+      "name": "outputDirectory",
+      "type": "string",
+      "label": "Output directory",
+      "defaultValue": "site",
+      "required": true,
+      "helpMarkDown": "Where the generated site is written. Relative paths resolve against the source directory. Must not be the source directory itself."
+    },
+    {
+      "name": "basePath",
+      "type": "string",
+      "label": "Base path",
+      "defaultValue": "/",
+      "required": false,
+      "helpMarkDown": "Set this when the site is hosted under a sub-path, for example `/docs/`. Leave as `/` for a site at the domain root."
+    },
+    {
+      "name": "quiet",
+      "type": "boolean",
+      "label": "Suppress per-page logging",
+      "defaultValue": "false",
+      "required": false,
+      "helpMarkDown": "Log only the summary instead of one line per page. Useful for repositories with many hundreds of Markdown files."
+    }
+  ],
+  "outputVariables": [
+    {
+      "name": "outputDirectory",
+      "description": "Absolute path of the generated site. Use it as `app_location` for the Azure Static Web Apps deploy task."
+    }
+  ],
+  "restrictions": {
+    "commands": {
+      "mode": "restricted"
+    },
+    "settableVariables": {
+      "allowed": ["outputDirectory"]
+    }
+  },
+  "execution": {
+    "Node20_1": {
+      "target": "index.js"
+    }
+  },
+  "messages": {
+    "SourceDirectoryNotFound": "Source directory not found: %s. Check the 'Source directory' input.",
+    "CliNotFound": "The bundled docuservice CLI was not found at %s. The extension package is incomplete; please report this issue.",
+    "BuildFailed": "docuservice build failed with exit code %s."
+  }
+}

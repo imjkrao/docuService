@@ -1,0 +1,19 @@
+{
+  "name": "docuservice-build-task",
+  "version": "1.0.0",
+  "description": "Azure Pipelines task that builds a documentation site with docuservice.",
+  "private": true,
+  "main": "index.js",
+  "scripts": {
+    "build": "tsc -p ."
+  },
+  "license": "MIT",
+  "dependencies": {
+    "azure-pipelines-task-lib": "^4.17.3",
+    "docuservice": "^0.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "^5.7.2"
+  }
+}

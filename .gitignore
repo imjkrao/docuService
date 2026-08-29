@@ -3,3 +3,9 @@ dist/
 .tmp/
 *.log
 .DS_Store
+
+# Azure DevOps extension build output
+*.vsix
+extension/dist/
+extension/LICENSE
+.taskkey
