@@ -86,7 +86,9 @@ The manifest publishes under the **`imjkrao`** publisher. This must match the pu
 registered at <https://marketplace.visualstudio.com/manage> exactly, or the upload is
 rejected.
 
-1. **Create a PAT** with the **Marketplace → Manage** scope. This is one-time.
+1. **Create a PAT** with the **Marketplace → Publish** scope. This is one-time. `Publish`
+   is the minimal scope that works; a token with `Publish` is accepted even where an
+   administrator has restricted the creation of global PATs.
 2. **Publish privately and share with your own organization first:**
 
    ```bash
