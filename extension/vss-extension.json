@@ -3,7 +3,7 @@
   "id": "docuservice",
   "name": "DocuService — Markdown to Static Web App",
   "version": "1.0.0",
-  "publisher": "YOUR-PUBLISHER-ID",
+  "publisher": "imjkrao",
   "public": false,
   "targets": [
     {

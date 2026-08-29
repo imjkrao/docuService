@@ -82,23 +82,23 @@ When the bundled CLI should move to a newer `docuservice`, bump the dependency i
 
 ## Publishing
 
-Steps 1–3 are one-time.
+The manifest publishes under the **`imjkrao`** publisher. This must match the publisher
+registered at <https://marketplace.visualstudio.com/manage> exactly, or the upload is
+rejected.
 
-1. **Create a publisher** at <https://marketplace.visualstudio.com/manage> and accept the
-   [Publisher Agreement](https://aka.ms/vsmarketplace-agreement). Choose the display name
-   deliberately — `LICENSE` currently reads `Copyright (c) 2026 imjkrao`, a GitHub handle
-   rather than a name you may want on a Marketplace listing.
-2. **Set the publisher** in `extension/vss-extension.json`, replacing `YOUR-PUBLISHER-ID`.
-3. **Create a PAT** with the **Marketplace → Manage** scope.
-4. **Publish privately and share with your own organization first:**
+1. **Create a PAT** with the **Marketplace → Manage** scope. This is one-time.
+2. **Publish privately and share with your own organization first:**
 
    ```bash
    npx tfx extension publish --root extension --manifest-globs vss-extension.json \
      --share-with <your-org> --token <pat>
    ```
 
-5. **Install it**: Organization settings → Extensions → *Shared with me* → Get it free.
-6. **Go public** by setting `"public": true` in the manifest and republishing. This
+   Replace `<your-org>` with your Azure DevOps organization name — that is a different
+   value from the publisher ID.
+
+3. **Install it**: Organization settings → Extensions → *Shared with me* → Get it free.
+4. **Go public** by setting `"public": true` in the manifest and republishing. This
    requires a **verified publisher**; verification is a separate Microsoft process, so
    start it early if a public listing is the goal. Private sharing works immediately.
 
